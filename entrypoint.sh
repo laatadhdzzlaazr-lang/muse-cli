@@ -30,5 +30,31 @@ if [ ! -f "$HOME/.config/muse-cli/telegram.json" ] && [ -n "$TELEGRAM_BOT_TOKEN"
   printf '%s' "$TELEGRAM_BOT_TOKEN" | muse-cli telegram setup
 fi
 
+# Allow extra Telegram users without re-pairing: TELEGRAM_ALLOWED_USER_IDS
+# is a comma-separated list of numeric Telegram user ids, set as a
+# Northflank secret. On every start, merge them into telegram.json's
+# allowed_user_ids (owner and token are preserved). The bot reads the
+# config at startup, so a restart/redeploy applies the change.
+if [ -n "$TELEGRAM_ALLOWED_USER_IDS" ] && [ -f "$HOME/.config/muse-cli/telegram.json" ]; then
+  TELEGRAM_ALLOWED_USER_IDS="$TELEGRAM_ALLOWED_USER_IDS" python3 -c '
+import json, os
+p = os.path.expanduser("~/.config/muse-cli/telegram.json")
+with open(p) as f:
+    conf = json.load(f)
+allowed = set(int(x) for x in (conf.get("allowed_user_ids") or []))
+for x in os.environ["TELEGRAM_ALLOWED_USER_IDS"].split(","):
+    x = x.strip()
+    if x:
+        allowed.add(int(x))
+if conf.get("owner_id"):
+    allowed.add(int(conf["owner_id"]))
+conf["allowed_user_ids"] = sorted(allowed)
+with open(p, "w") as f:
+    json.dump(conf, f)
+os.chmod(p, 0o600)
+print("allowed Telegram users:", conf["allowed_user_ids"])
+'
+fi
+
 # Run the bot in the foreground. Northflank restarts it if it stops.
 exec muse-cli telegram run
