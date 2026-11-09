@@ -7,6 +7,13 @@ set -e
 mkdir -p "$HOME/.config/muse-cli"
 chmod 700 "$HOME/.config/muse-cli" || true
 
+# Start the server-browser cookie renewal loop in the background.
+# It starts headless Chrome, tries `muse-cli auth export` every 6h,
+# and never blocks the bot itself.
+if [ -x /renew-cookies.sh ]; then
+  nohup /renew-cookies.sh >/tmp/renew-cookies.log 2>&1 &
+fi
+
 # Optional: muse.ai cookies as one line, e.g. "hatch_sess=...; other=..."
 # If not set, the bot starts with the token only and the owner can
 # send fresh cookies later with /login in Telegram.
